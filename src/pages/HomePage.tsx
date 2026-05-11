@@ -1,148 +1,255 @@
-// Home page of the app, Currently a demo page for demonstration.
-// Please rewrite this file to implement your own logic. Do not replace or delete it, simply rewrite this HomePage.tsx file.
-import { useEffect } from 'react'
-import { Sparkles } from 'lucide-react'
-import { Button } from '@/components/ui/button'
-import { ThemeToggle } from '@/components/ThemeToggle'
-import { Toaster, toast } from '@/components/ui/sonner'
-import { create } from 'zustand'
-import { useShallow } from 'zustand/react/shallow'
-import { AppLayout } from '@/components/layout/AppLayout'
-
-// Timer store: independent slice with a clear, minimal API, for demonstration
-type TimerState = {
-  isRunning: boolean;
-  elapsedMs: number;
-  start: () => void;
-  pause: () => void;
-  reset: () => void;
-  tick: (deltaMs: number) => void;
-}
-
-const useTimerStore = create<TimerState>((set) => ({
-  isRunning: false,
-  elapsedMs: 0,
-  start: () => set({ isRunning: true }),
-  pause: () => set({ isRunning: false }),
-  reset: () => set({ elapsedMs: 0, isRunning: false }),
-  tick: (deltaMs) => set((s) => ({ elapsedMs: s.elapsedMs + deltaMs })),
-}))
-
-// Counter store: separate slice to showcase multiple stores without coupling
-type CounterState = {
-  count: number;
-  inc: () => void;
-  reset: () => void;
-}
-
-const useCounterStore = create<CounterState>((set) => ({
-  count: 0,
-  inc: () => set((s) => ({ count: s.count + 1 })),
-  reset: () => set({ count: 0 }),
-}))
-
-function formatDuration(ms: number): string {
-  const total = Math.max(0, Math.floor(ms / 1000))
-  const m = Math.floor(total / 60)
-  const s = total % 60
-  return `${m}:${s.toString().padStart(2, '0')}`
-}
-
+import { useState, useEffect } from 'react';
+import { apiClient } from '@/lib/apiClient';
+import type { DashboardSummary, AccountSummary } from '@/types/entities';
+import { AppLayout } from '@/components/layout/AppLayout';
+import { Toaster, toast } from '@/components/ui/sonner';
 export function HomePage() {
-  // Select only what is needed to avoid unnecessary re-renders
-  const { isRunning, elapsedMs } = useTimerStore(
-    useShallow((s) => ({ isRunning: s.isRunning, elapsedMs: s.elapsedMs })),
-  )
-  const start = useTimerStore((s) => s.start)
-  const pause = useTimerStore((s) => s.pause)
-  const resetTimer = useTimerStore((s) => s.reset)
-  const count = useCounterStore((s) => s.count)
-  const inc = useCounterStore((s) => s.inc)
-  const resetCount = useCounterStore((s) => s.reset)
-
-  // Drive the timer only while running; avoid update-depth issues with a scoped RAF
+  const [summary, setSummary] = useState<DashboardSummary | null>(null);
+  const [accounts, setAccounts] = useState<AccountSummary[]>([]);
+  const [selectedMonth, setSelectedMonth] = useState<string>('');
+  const [availableMonths, setAvailableMonths] = useState<string[]>([]);
+  const [isLoading, setIsLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
   useEffect(() => {
-    if (!isRunning) return
-    let raf = 0
-    let last = performance.now()
-    const loop = () => {
-      const now = performance.now()
-      const delta = now - last
-      last = now
-      // Read store API directly to keep effect deps minimal and stable
-      useTimerStore.getState().tick(delta)
-      raf = requestAnimationFrame(loop)
-    }
-    raf = requestAnimationFrame(loop)
-    return () => cancelAnimationFrame(raf)
-  }, [isRunning])
-
-  const onPleaseWait = () => {
-    inc()
-    if (!isRunning) {
-      start()
-      toast.success('Building your app…', {
-        description: 'Hang tight, we\'re setting everything up.',
-      })
-    } else {
-      pause()
-      toast.info('Taking a short pause', {
-        description: 'We\'ll continue shortly.',
-      })
-    }
-  }
-
-  const formatted = formatDuration(elapsedMs)
-
-  return (
-    <AppLayout>
-      <div className="min-h-screen flex flex-col items-center justify-center bg-background text-foreground p-4 overflow-hidden relative">
-        <ThemeToggle />
-        <div className="absolute inset-0 bg-gradient-rainbow opacity-10 dark:opacity-20 pointer-events-none" />
-        <div className="text-center space-y-8 relative z-10 animate-fade-in">
-          <div className="flex justify-center">
-            <div className="w-16 h-16 rounded-2xl bg-gradient-primary flex items-center justify-center shadow-primary floating">
-              <Sparkles className="w-8 h-8 text-white rotating" />
-            </div>
-          </div>
-          <h1 className="text-5xl md:text-7xl font-display font-bold text-balance leading-tight">
-            Creating your <span className="text-gradient">app</span>
-          </h1>
-          <p className="text-lg md:text-xl text-muted-foreground max-w-xl mx-auto text-pretty">
-            Your application would be ready soon.
-          </p>
-          <div className="flex justify-center gap-4">
-            <Button 
-              size="lg"
-              onClick={onPleaseWait}
-              className="btn-gradient px-8 py-4 text-lg font-semibold hover:-translate-y-0.5 transition-all duration-200"
-              aria-live="polite"
-            >
-              Please Wait
-            </Button>
-          </div>
-          <div className="flex items-center justify-center gap-6 text-sm text-muted-foreground">
-            <div>
-              Time elapsed: <span className="font-medium tabular-nums text-foreground">{formatted}</span>
-            </div>
-            <div>
-              Coins: <span className="font-medium tabular-nums text-foreground">{count}</span>
-            </div>
-          </div>
-          <div className="flex justify-center gap-2">
-            <Button variant="outline" size="sm" onClick={() => { resetTimer(); resetCount(); toast('Reset complete') }}>
-              Reset
-            </Button>
-            <Button variant="outline" size="sm" onClick={() => { inc(); toast('Coin added') }}>
-              Add Coin
-            </Button>
+    const loadInitialData = async () => {
+      try {
+        setIsLoading(true);
+        const months = await apiClient.getSnapshotMonths();
+        setAvailableMonths(months);
+        const defaultMonth = months[0] || '2024-01';
+        setSelectedMonth(defaultMonth);
+        const [summaryData, accountsData] = await Promise.all([
+          apiClient.getDashboardSummary(defaultMonth),
+          apiClient.getAccounts(defaultMonth),
+        ]);
+        setSummary(summaryData);
+        setAccounts(accountsData);
+        setError(null);
+      } catch (err: any) {
+        console.error('Error loading dashboard data:', err);
+        setError(err.message || 'Failed to load dashboard data');
+        toast.error('Failed to load dashboard data');
+      } finally {
+        setIsLoading(false);
+      }
+    };
+    loadInitialData();
+  }, []);
+  useEffect(() => {
+    if (!selectedMonth) return;
+    const loadMonthData = async () => {
+      try {
+        const [summaryData, accountsData] = await Promise.all([
+          apiClient.getDashboardSummary(selectedMonth),
+          apiClient.getAccounts(selectedMonth),
+        ]);
+        setSummary(summaryData);
+        setAccounts(accountsData);
+        setError(null);
+      } catch (err: any) {
+        console.error('Error loading month data:', err);
+        setError(err.message || 'Failed to load data for selected month');
+        toast.error('Failed to load data for selected month');
+      }
+    };
+    loadMonthData();
+  }, [selectedMonth]);
+  if (isLoading) {
+    return (
+      <AppLayout container>
+        <div className="flex items-center justify-center min-h-screen">
+          <div className="text-center space-y-4">
+            <div className="w-16 h-16 border-4 border-blue-600 border-t-transparent rounded-full animate-spin mx-auto" />
+            <p className="text-gray-600">Loading dashboard data...</p>
           </div>
         </div>
-        <footer className="absolute bottom-8 text-center text-muted-foreground/80">
-          <p>Powered by Cloudflare</p>
-        </footer>
         <Toaster richColors closeButton />
+      </AppLayout>
+    );
+  }
+  if (error) {
+    return (
+      <AppLayout container>
+        <div className="flex items-center justify-center min-h-screen">
+          <div className="text-center space-y-4 max-w-md">
+            <div className="w-16 h-16 bg-red-100 rounded-full flex items-center justify-center mx-auto">
+              <svg
+                className="w-8 h-8 text-red-600"
+                fill="none"
+                stroke="currentColor"
+                viewBox="0 0 24 24"
+              >
+                <path
+                  strokeLinecap="round"
+                  strokeLinejoin="round"
+                  strokeWidth={2}
+                  d="M12 8v4m0 4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z"
+                />
+              </svg>
+            </div>
+            <h2 className="text-xl font-semibold text-gray-900">Error Loading Dashboard</h2>
+            <p className="text-gray-600">{error}</p>
+            <button
+              onClick={() => window.location.reload()}
+              className="px-4 py-2 bg-blue-600 text-white rounded hover:bg-blue-700 transition-colors"
+            >
+              Retry
+            </button>
+          </div>
+        </div>
+        <Toaster richColors closeButton />
+      </AppLayout>
+    );
+  }
+  return (
+    <AppLayout container>
+      <div className="space-y-6">
+        <div className="flex items-center justify-between">
+          <div>
+            <h1 className="text-3xl font-bold text-gray-900">License Risk Dashboard</h1>
+            <p className="text-gray-600 mt-1">Monitor account health and utilization metrics</p>
+          </div>
+          <div className="flex items-center gap-4">
+            <label className="text-sm font-medium text-gray-700">Snapshot Month:</label>
+            <select
+              value={selectedMonth}
+              onChange={(e) => setSelectedMonth(e.target.value)}
+              className="px-3 py-2 border border-gray-300 rounded-lg text-sm focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+            >
+              {availableMonths.map((month) => (
+                <option key={month} value={month}>
+                  {month}
+                </option>
+              ))}
+            </select>
+          </div>
+        </div>
+        {summary && (
+          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
+            <div className="bg-white border border-gray-200 rounded-lg p-4 shadow-sm">
+              <div className="text-sm text-gray-600 mb-1">Active Accounts</div>
+              <div className="text-3xl font-bold text-gray-900">{summary.activeAccountCount}</div>
+              <div className="text-xs text-gray-500 mt-1">of {summary.totalAccountCount} total</div>
+            </div>
+            <div className="bg-white border border-gray-200 rounded-lg p-4 shadow-sm">
+              <div className="text-sm text-gray-600 mb-1">Critical Risk</div>
+              <div className="text-3xl font-bold text-red-600">{summary.criticalRiskAccountCount}</div>
+              <div className="text-xs text-gray-500 mt-1">accounts need attention</div>
+            </div>
+            <div className="bg-white border border-gray-200 rounded-lg p-4 shadow-sm">
+              <div className="text-sm text-gray-600 mb-1">High Risk</div>
+              <div className="text-3xl font-bold text-orange-600">{summary.highRiskAccountCount}</div>
+              <div className="text-xs text-gray-500 mt-1">accounts at risk</div>
+            </div>
+            <div className="bg-white border border-gray-200 rounded-lg p-4 shadow-sm">
+              <div className="text-sm text-gray-600 mb-1">Expiring Soon</div>
+              <div className="text-3xl font-bold text-yellow-600">
+                {summary.accountsExpiringWithin90Days}
+              </div>
+              <div className="text-xs text-gray-500 mt-1">within 90 days</div>
+            </div>
+            <div className="bg-white border border-gray-200 rounded-lg p-4 shadow-sm">
+              <div className="text-sm text-gray-600 mb-1">AI Units Consumed</div>
+              <div className="text-3xl font-bold text-gray-900">
+                {summary.totalAiUnitsConsumed.toLocaleString()}
+              </div>
+              <div className="text-xs text-gray-500 mt-1">this month</div>
+            </div>
+            <div className="bg-white border border-gray-200 rounded-lg p-4 shadow-sm">
+              <div className="text-sm text-gray-600 mb-1">Agentic Units Consumed</div>
+              <div className="text-3xl font-bold text-gray-900">
+                {summary.totalAgenticUnitsConsumed.toLocaleString()}
+              </div>
+              <div className="text-xs text-gray-500 mt-1">this month</div>
+            </div>
+            <div className="bg-white border border-gray-200 rounded-lg p-4 shadow-sm">
+              <div className="text-sm text-gray-600 mb-1">Robot Units Consumed</div>
+              <div className="text-3xl font-bold text-gray-900">
+                {summary.totalRobotUnitsConsumed.toLocaleString()}
+              </div>
+              <div className="text-xs text-gray-500 mt-1">this month</div>
+            </div>
+            <div className="bg-white border border-gray-200 rounded-lg p-4 shadow-sm">
+              <div className="text-sm text-gray-600 mb-1">Licensed Products</div>
+              <div className="text-3xl font-bold text-gray-900">{summary.totalLicensedProducts}</div>
+              <div className="text-xs text-gray-500 mt-1">unique products</div>
+            </div>
+          </div>
+        )}
+        <div className="bg-white border border-gray-200 rounded-lg shadow-sm">
+          <div className="px-6 py-4 border-b border-gray-200">
+            <h2 className="text-lg font-semibold text-gray-900">Account Overview</h2>
+          </div>
+          <div className="overflow-x-auto">
+            <table className="min-w-full divide-y divide-gray-200">
+              <thead className="bg-gray-50">
+                <tr>
+                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                    Account
+                  </th>
+                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                    Account Director
+                  </th>
+                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                    TAM
+                  </th>
+                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                    Products
+                  </th>
+                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                    Risk Level
+                  </th>
+                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                    Risk Score
+                  </th>
+                </tr>
+              </thead>
+              <tbody className="bg-white divide-y divide-gray-200">
+                {accounts.map((account) => (
+                  <tr key={account.subsidiaryId} className="hover:bg-gray-50">
+                    <td className="px-6 py-4 whitespace-nowrap">
+                      <div className="text-sm font-medium text-gray-900">
+                        {account.subsidiaryName}
+                      </div>
+                      <div className="text-xs text-gray-500">{account.subsidiaryId}</div>
+                    </td>
+                    <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-700">
+                      {account.accountDirector || '—'}
+                    </td>
+                    <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-700">
+                      {account.tam || '—'}
+                    </td>
+                    <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-700">
+                      {account.productCount}
+                    </td>
+                    <td className="px-6 py-4 whitespace-nowrap">
+                      <span
+                        className={`inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium ${
+                          account.riskLevel === 'Critical'
+                            ? 'bg-red-100 text-red-800'
+                            : account.riskLevel === 'High'
+                            ? 'bg-orange-100 text-orange-800'
+                            : account.riskLevel === 'Medium'
+                            ? 'bg-yellow-100 text-yellow-800'
+                            : account.riskLevel === 'Low'
+                            ? 'bg-blue-100 text-blue-800'
+                            : 'bg-gray-100 text-gray-800'
+                        }`}
+                      >
+                        {account.riskLevel}
+                      </span>
+                    </td>
+                    <td className="px-6 py-4 whitespace-nowrap text-sm font-medium text-gray-900">
+                      {account.riskScore}
+                    </td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+        </div>
       </div>
+      <Toaster richColors closeButton />
     </AppLayout>
-  )
+  );
 }
