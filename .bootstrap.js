@@ -77,7 +77,14 @@ function updateWranglerJsonc() {
 }
 
 function runSetupCommands() {
-    const commands = [];
+    const commands = [
+    "bun add express@^4.21.0",
+    "bun add cors@^2.8.5",
+    "bun add dotenv@^16.4.5",
+    "bun add @types/express@^4.17.21",
+    "bun add @types/cors@^2.8.17",
+    "bun add @types/node@^22.10.0"
+];
     
     if (commands.length === 0) {
         console.log('⊘ No setup commands to run');
