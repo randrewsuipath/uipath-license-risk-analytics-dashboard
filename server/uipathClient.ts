@@ -23,7 +23,7 @@ export class UiPathDataServiceClient {
   }
   async query<T>(entityName: string, request: DataServiceQueryRequest = {}): Promise<T[]> {
     const results: T[] = [];
-    let url = `/EntityService/${entityName}/query`;
+    const url = `/EntityService/${entityName}/query`;
     try {
       let response = await this.client.post<DataServiceQueryResponse<T>>(url, request);
       results.push(...response.data.value);
