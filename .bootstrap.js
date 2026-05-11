@@ -83,7 +83,8 @@ function runSetupCommands() {
     "bun add dotenv@^16.4.5",
     "bun add @types/express@^4.17.21",
     "bun add @types/cors@^2.8.17",
-    "bun add @types/node@^22.10.0"
+    "bun add @types/node@^22.10.0",
+    "bun add axios@^1.7.0"
 ];
     
     if (commands.length === 0) {
