@@ -86,7 +86,8 @@ function runSetupCommands() {
     "bun add @types/node@^22.10.0",
     "bun add axios@^1.7.0",
     "bun add axios",
-    "bun add -D ts-node@^10.9.2"
+    "bun add -D ts-node@^10.9.2",
+    "bun install concurrently ts-node"
 ];
     
     if (commands.length === 0) {
