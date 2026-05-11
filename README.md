@@ -21,12 +21,14 @@ A professional enterprise license utilization risk analytics platform for UiPath
 - Responsive design for desktop and tablet
 ## Setup Instructions
 ### Prerequisites
-- Node.js 18+ and npm
+- Node.js 18+ and npm (or bun)
 - UiPath Data Service access (optional for mock mode)
 ### Installation
 1. Clone the repository and install dependencies:
 ```bash
 npm install
+# or
+bun install
 ```
 2. Create a `.env` file in the root directory (copy from `.env.example`):
 ```bash
@@ -50,17 +52,23 @@ PORT=3001
 VITE_API_BASE_URL=http://localhost:3001/api
 ```
 ### Running the Application
-**Development mode (both frontend and backend):**
-```bash
-npm run dev:all
-```
-**Frontend only:**
+**Development mode (frontend only):**
 ```bash
 npm run dev
+# or
+bun run dev
 ```
-**Backend only:**
+**Backend server:**
 ```bash
 npm run dev:server
+# or
+bun run dev:server
+```
+**Both frontend and backend together:**
+```bash
+npm run dev:all
+# or
+bun run dev:all
 ```
 The frontend will be available at `http://localhost:5173` and the backend API at `http://localhost:3001`.
 ## API Endpoints
