@@ -52,25 +52,35 @@ PORT=3001
 VITE_API_BASE_URL=http://localhost:3001/api
 ```
 ### Running the Application
-**Development mode (frontend only):**
-```bash
-npm run dev
-# or
-bun run dev
-```
-**Backend server:**
-```bash
-npm run dev:server
-# or
-bun run dev:server
-```
-**Both frontend and backend together:**
+**IMPORTANT**: The application requires both the frontend and backend to be running.
+**Option 1: Run both together (recommended):**
 ```bash
 npm run dev:all
 # or
 bun run dev:all
 ```
+This starts both the frontend (port 5173) and backend (port 3001) in a single terminal.
+**Option 2: Run separately in different terminals:**
+Terminal 1 - Backend server:
+```bash
+npm run dev:server
+# or
+bun run dev:server
+```
+Terminal 2 - Frontend:
+```bash
+npm run dev
+# or
+bun run dev
+```
 The frontend will be available at `http://localhost:5173` and the backend API at `http://localhost:3001`.
+### Troubleshooting
+**"Cannot connect to backend server" error:**
+This means the backend server is not running. Make sure to:
+1. Start the backend with `npm run dev:server` in a separate terminal, OR
+2. Use `npm run dev:all` to run both frontend and backend together
+**WebSocket connection warnings in console:**
+These are Vite HMR (Hot Module Reload) warnings and do not affect functionality. They occur in certain development environments and can be safely ignored.
 ## API Endpoints
 - `GET /api/snapshot-months` - Get available snapshot months
 - `GET /api/dashboard?month=YYYY-MM` - Get dashboard summary metrics

@@ -13,11 +13,21 @@ class ApiClient {
     this.baseUrl = baseUrl;
   }
   private async request<T>(endpoint: string): Promise<T> {
-    const response = await fetch(`${this.baseUrl}${endpoint}`);
-    if (!response.ok) {
-      throw new Error(`API request failed: ${response.statusText}`);
+    try {
+      const response = await fetch(`${this.baseUrl}${endpoint}`);
+      if (!response.ok) {
+        throw new Error(`API request failed: ${response.statusText}`);
+      }
+      return response.json();
+    } catch (error) {
+      if (error instanceof TypeError && error.message.includes('fetch')) {
+        throw new Error(
+          `Cannot connect to backend server at ${this.baseUrl}. ` +
+          `Please ensure the backend server is running with: npm run dev:server`
+        );
+      }
+      throw error;
     }
-    return response.json();
   }
   async getSnapshotMonths(): Promise<string[]> {
     const data = await this.request<{ months: string[] }>('/snapshot-months');

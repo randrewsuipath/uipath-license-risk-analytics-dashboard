@@ -85,18 +85,34 @@ export function HomePage() {
     );
   }
   if (error) {
+    const isConnectionError = error.includes('Cannot connect to backend server');
     return (
       <AppLayout container>
         <div className="flex items-center justify-center min-h-screen">
-          <div className="text-center space-y-4 max-w-md">
+          <div className="text-center space-y-4 max-w-2xl">
             <div className="w-16 h-16 bg-red-100 rounded-full flex items-center justify-center mx-auto">
               <svg className="w-8 h-8 text-red-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                 <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 8v4m0 4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
               </svg>
             </div>
-            <h2 className="text-xl font-semibold text-gray-900">Error Loading Dashboard</h2>
+            <h2 className="text-xl font-semibold text-gray-900">
+              {isConnectionError ? 'Backend Server Not Running' : 'Error Loading Dashboard'}
+            </h2>
             <p className="text-gray-600">{error}</p>
-            <button onClick={() => window.location.reload()} className="px-4 py-2 bg-blue-600 text-white rounded hover:bg-blue-700 transition-colors">
+            {isConnectionError && (
+              <div className="bg-blue-50 border border-blue-200 rounded-lg p-4 text-left">
+                <p className="text-sm font-semibold text-blue-900 mb-2">To start the backend server:</p>
+                <ol className="text-sm text-blue-800 space-y-1 list-decimal list-inside">
+                  <li>Open a new terminal</li>
+                  <li>Run: <code className="bg-blue-100 px-2 py-0.5 rounded">npm run dev:server</code></li>
+                  <li>Or run both frontend and backend: <code className="bg-blue-100 px-2 py-0.5 rounded">npm run dev:all</code></li>
+                </ol>
+              </div>
+            )}
+            <button 
+              onClick={() => window.location.reload()} 
+              className="px-4 py-2 bg-blue-600 text-white rounded hover:bg-blue-700 transition-colors"
+            >
               Retry
             </button>
           </div>
@@ -115,7 +131,11 @@ export function HomePage() {
           </div>
           <div className="flex items-center gap-4">
             <label className="text-sm font-medium text-gray-700">Snapshot Month:</label>
-            <select value={selectedMonth} onChange={(e) => setSelectedMonth(e.target.value)} className="px-3 py-2 border border-gray-300 rounded-lg text-sm focus:ring-2 focus:ring-blue-500 focus:border-blue-500">
+            <select 
+              value={selectedMonth} 
+              onChange={(e) => setSelectedMonth(e.target.value)} 
+              className="px-3 py-2 border border-gray-300 rounded-lg text-sm focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+            >
               {availableMonths.map((month) => (
                 <option key={month} value={month}>{month}</option>
               ))}
@@ -176,7 +196,11 @@ export function HomePage() {
           </div>
         </div>
       </div>
-      <AccountDetailDrawer subsidiaryId={selectedAccountId} selectedMonth={selectedMonth} onClose={handleCloseDetail} />
+      <AccountDetailDrawer 
+        subsidiaryId={selectedAccountId} 
+        selectedMonth={selectedMonth} 
+        onClose={handleCloseDetail} 
+      />
       <Toaster richColors closeButton />
     </AppLayout>
   );
